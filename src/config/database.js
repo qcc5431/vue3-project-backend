@@ -1,30 +1,37 @@
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 
-// 判断当前环境
-const isProduction = process.env.NODE_ENV === "production";
+// 当前运行环境
+const NODE_ENV = process.env.NODE_ENV || "development";
 
-// 数据库配置（根据环境自动切换）
+// 数据库配置
 const dbConfig = {
-  // 生产环境：服务器本地连接
-  // 开发环境：连接服务器远程数据库
-  host: isProduction ? "localhost" : process.env.DB_HOST || "localhost",
+  host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT, 10) || 3306,
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "test",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 };
 
-console.log(`🔧 当前环境: ${isProduction ? "生产环境" : "开发环境"}`);
+// 输出环境信息
+console.log(
+  `🔧 当前环境: ${NODE_ENV === "production" ? "生产环境" : "开发环境"}`
+);
 console.log(
   `🔗 数据库连接: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`
 );
 
 // 创建数据库连接池
-const pool = mysql.createPool(dbConfig);
+const pool = mysql.createPool({
+  host: dbConfig.host,
+  port: dbConfig.port,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  database: dbConfig.database,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
 // 测试数据库连接
 const testConnection = async () => {
@@ -38,4 +45,4 @@ const testConnection = async () => {
   }
 };
 
-module.exports = { pool, testConnection };
+module.exports = { pool, testConnection, dbConfig };
