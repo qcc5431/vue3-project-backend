@@ -3,10 +3,13 @@ const router = express.Router();
 const userController = require("../controllers/userController");
 
 // 用户路由
-router.get("/", userController.getAllUsers); // GET /api/users - 获取所有用户
-router.get("/:id", userController.getUserById); // GET /api/users/:id - 获取单个用户
-router.post("/", userController.createUser); // POST /api/users - 创建用户
-router.put("/:id", userController.updateUser); // PUT /api/users/:id - 更新用户
-router.delete("/:id", userController.deleteUser); // DELETE /api/users/:id - 删除用户
+router.get("/getUsers", userController.getAllUsers);
+router.get("/getUserById/:id", userController.getUserById);
+router.post("/register", userController.createUser);
+router.put("/updateUser/:id", userController.updateUser);
+router.delete("/deleteUser/:id", userController.deleteUser);
+router.post("/login", userController.login);
+router.post("/logout", userController.logout);
+router.post("/updatePassword", userController.updatePassword);
 
 module.exports = router;

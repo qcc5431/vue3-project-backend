@@ -286,11 +286,276 @@ sudo netstat -tulpn | grep 3000
 # 在 .env 文件中修改 PORT 值，然后重启应用
 ```
 
-## 十、安全建议
+## 十、防火墙和安全组配置
 
-1. 使用防火墙限制端口访问
-2. 定期更新依赖包：`npm audit fix`
-3. 使用环境变量管理敏感信息
-4. 配置 SSL 证书（使用 Let's Encrypt）
-5. 定期备份数据库
-6. 监控应用日志和性能指标
+### 1. UFW 防火墙配置（Ubuntu/Debian）
+
+#### 启用并配置 UFW
+```bash
+# 检查防火墙状态
+sudo ufw status
+
+# 设置默认策略（拒绝所有入站，允许所有出站）
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+
+# 允许 SSH（重要！防止被锁定）
+sudo ufw allow 22/tcp
+# 或限制 SSH 仅允许特定 IP
+# sudo ufw allow from YOUR_IP_ADDRESS to any port 22
+
+# 允许 HTTP
+sudo ufw allow 80/tcp
+
+# 允许 HTTPS
+sudo ufw allow 443/tcp
+
+# 3000 端口不需要对外开放（仅本地访问）
+# 因为 Nginx 已经做了反向代理
+
+# 启用防火墙
+sudo ufw enable
+
+# 查看规则
+sudo ufw status numbered
+sudo ufw status verbose
+```
+
+#### 高级配置（可选）
+```bash
+# 限制 SSH 连接频率（防止暴力破解）
+sudo ufw limit 22/tcp
+
+# 允许特定 IP 段访问
+sudo ufw allow from 192.168.1.0/24
+
+# 删除规则
+sudo ufw status numbered
+sudo ufw delete [规则编号]
+
+# 重置所有规则
+sudo ufw reset
+
+# 禁用防火墙
+sudo ufw disable
+```
+
+### 2. 云服务器安全组配置
+
+#### 阿里云 ECS 安全组规则
+
+**入方向规则：**
+
+| 协议 | 端口范围 | 授权对象 | 优先级 | 说明 |
+|------|---------|---------|--------|------|
+| TCP | 22 | 你的IP/32 | 1 | SSH（建议限制IP） |
+| TCP | 80 | 0.0.0.0/0 | 2 | HTTP |
+| TCP | 443 | 0.0.0.0/0 | 2 | HTTPS |
+| TCP | 3306 | 仅内网 | 100 | MySQL（禁止外网访问） |
+| TCP | 3000 | 127.0.0.1/32 | 100 | Node.js应用（禁止外网访问） |
+
+**出方向规则：**
+- 保持默认（允许所有出站流量）
+
+#### 腾讯云 CVM 安全组规则
+
+访问：云服务器 → 安全组 → 入站规则
+
+```
+类型      协议端口    来源            策略    备注
+SSH       22        你的IP/32      允许    SSH登录
+HTTP      80        0.0.0.0/0      允许    HTTP访问
+HTTPS     443       0.0.0.0/0      允许    HTTPS访问
+MySQL     3306      拒绝所有        拒绝    禁止外部访问数据库
+自定义     3000      拒绝所有        拒绝    禁止外部访问应用端口
+```
+
+#### AWS EC2 安全组规则
+
+**Inbound Rules:**
+```
+Type            Protocol    Port Range    Source          Description
+SSH             TCP         22            My IP           SSH access
+HTTP            TCP         80            0.0.0.0/0       HTTP access
+HTTPS           TCP         443           0.0.0.0/0       HTTPS access
+```
+
+**Outbound Rules:**
+- All traffic allowed (default)
+
+### 3. 端口说明和安全策略
+
+#### 必须对外开放的端口
+- **22 (SSH)**: 管理服务器，建议限制 IP 访问
+- **80 (HTTP)**: Nginx 提供 Web 服务
+- **443 (HTTPS)**: Nginx 提供 HTTPS 服务
+
+#### 禁止对外开放的端口
+- **3000**: Node.js 应用端口（仅允许 localhost 访问）
+- **3306**: MySQL 数据库端口（仅允许内网访问）
+
+#### 安全架构说明
+```
+外部请求 → [80/443端口] → Nginx → [localhost:3000] → Express应用
+                                         ↓
+                                   [localhost:3306]
+                                      MySQL数据库
+```
+
+### 4. 验证配置
+
+#### 验证防火墙规则
+```bash
+# 查看 UFW 状态
+sudo ufw status verbose
+
+# 测试端口监听
+sudo netstat -tulpn | grep -E '(80|443|3000|3306)'
+
+# 或使用 ss 命令
+sudo ss -tulpn | grep -E '(80|443|3000|3306)'
+```
+
+#### 从外部测试端口
+```bash
+# 在本地电脑测试（替换为你的服务器IP）
+telnet YOUR_SERVER_IP 80      # 应该能连接
+telnet YOUR_SERVER_IP 443     # 应该能连接
+telnet YOUR_SERVER_IP 3000    # 应该超时/拒绝（正确）
+telnet YOUR_SERVER_IP 3306    # 应该超时/拒绝（正确）
+
+# 或使用 nmap
+nmap YOUR_SERVER_IP
+```
+
+#### 测试 Web 访问
+```bash
+# 测试 Nginx 反向代理
+curl http://YOUR_SERVER_IP/api/users
+
+# 测试直接访问应用端口（应该失败）
+curl http://YOUR_SERVER_IP:3000/api/users
+```
+
+### 5. MySQL 数据库安全加固
+
+```bash
+# 编辑 MySQL 配置
+sudo vim /etc/mysql/mysql.conf.d/mysqld.cnf
+
+# 确保绑定到 localhost
+bind-address = 127.0.0.1
+
+# 重启 MySQL
+sudo systemctl restart mysql
+
+# 验证 MySQL 只监听本地
+sudo netstat -tulpn | grep 3306
+# 应该显示 127.0.0.1:3306
+```
+
+### 6. Nginx 安全配置
+
+```bash
+# 编辑 Nginx 配置
+sudo vim /etc/nginx/sites-available/vue3-backend
+```
+
+添加安全头部：
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # 安全头部
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+
+    # 限制请求体大小
+    client_max_body_size 10M;
+
+    # 限制请求速率（防止 DDoS）
+    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+
+    location / {
+        # 应用速率限制
+        limit_req zone=api_limit burst=20 nodelay;
+
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+```
+
+重启 Nginx：
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### 7. 快速配置脚本
+
+创建一键配置脚本：
+```bash
+#!/bin/bash
+# security-setup.sh
+
+echo "=== 配置防火墙和安全组 ==="
+
+# 1. 配置 UFW
+echo "配置 UFW 防火墙..."
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+echo "y" | sudo ufw enable
+
+# 2. 检查端口监听
+echo "\n检查端口监听状态..."
+sudo ss -tulpn | grep -E '(80|443|3000|3306)'
+
+# 3. 显示防火墙状态
+echo "\n防火墙规则:"
+sudo ufw status verbose
+
+echo "\n=== 配置完成 ==="
+echo "请确保在云服务商控制台配置安全组规则！"
+```
+
+## 十一、安全检查清单
+
+- [ ] UFW 防火墙已启用
+- [ ] 仅开放 22, 80, 443 端口
+- [ ] 云服务商安全组规则已配置
+- [ ] 3000 端口仅监听 localhost
+- [ ] 3306 端口仅监听 localhost
+- [ ] SSH 密钥登录已配置（禁用密码登录）
+- [ ] MySQL root 用户禁止远程登录
+- [ ] Nginx 安全头部已配置
+- [ ] 已配置 HTTPS（Let's Encrypt）
+- [ ] 定期更新系统和依赖包
+
+## 十二、其他安全建议
+
+1. 定期更新依赖包：`npm audit fix`
+2. 使用环境变量管理敏感信息
+3. 配置 SSL 证书（使用 Let's Encrypt）
+4. 定期备份数据库
+5. 监控应用日志和性能指标
+6. 使用 fail2ban 防止暴力破解
+7. 定期检查系统日志：`sudo tail -f /var/log/auth.log`
