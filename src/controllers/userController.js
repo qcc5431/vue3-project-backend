@@ -60,6 +60,30 @@ const createUser = async (req, res) => {
       });
     }
 
+    // 检查用户名是否已存在
+    const [existingUser] = await pool.query(
+      "SELECT id FROM users WHERE username = ?",
+      [username]
+    );
+    if (existingUser.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "用户名已存在",
+      });
+    }
+
+    // 检查邮箱是否已被注册
+    const [existingEmail] = await pool.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email]
+    );
+    if (existingEmail.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "邮箱已被注册",
+      });
+    }
+
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10);
 
