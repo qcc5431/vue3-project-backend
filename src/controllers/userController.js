@@ -7,13 +7,11 @@ const getAllUsers = async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM users");
     res.status(200).json({
-      success: true,
       data: rows,
     });
   } catch (error) {
     console.error("获取用户列表失败:", error);
     res.status(500).json({
-      success: false,
       message: "获取用户列表失败",
       error: error.message,
     });
@@ -28,19 +26,16 @@ const getUserById = async (req, res) => {
 
     if (rows.length === 0) {
       return res.status(404).json({
-        success: false,
         message: "用户不存在",
       });
     }
 
     res.status(200).json({
-      success: true,
       data: rows[0],
     });
   } catch (error) {
     console.error("获取用户失败:", error);
     res.status(500).json({
-      success: false,
       message: "获取用户失败",
       error: error.message,
     });
@@ -55,7 +50,6 @@ const createUser = async (req, res) => {
     // 基础验证
     if (!username || !email || !password) {
       return res.status(400).json({
-        success: false,
         message: "用户名、邮箱和密码不能为空",
       });
     }
@@ -67,7 +61,6 @@ const createUser = async (req, res) => {
     );
     if (existingUser.length > 0) {
       return res.status(400).json({
-        success: false,
         message: "用户名已存在",
       });
     }
@@ -79,7 +72,6 @@ const createUser = async (req, res) => {
     );
     if (existingEmail.length > 0) {
       return res.status(400).json({
-        success: false,
         message: "邮箱已被注册",
       });
     }
@@ -93,7 +85,6 @@ const createUser = async (req, res) => {
     );
 
     res.status(201).json({
-      success: true,
       message: "用户创建成功",
       data: {
         id: result.insertId,
@@ -104,7 +95,6 @@ const createUser = async (req, res) => {
   } catch (error) {
     console.error("创建用户失败:", error);
     res.status(500).json({
-      success: false,
       message: "创建用户失败",
       error: error.message,
     });
@@ -124,19 +114,16 @@ const updateUser = async (req, res) => {
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
-        success: false,
         message: "用户不存在",
       });
     }
 
     res.status(200).json({
-      success: true,
       message: "用户更新成功",
     });
   } catch (error) {
     console.error("更新用户失败:", error);
     res.status(500).json({
-      success: false,
       message: "更新用户失败",
       error: error.message,
     });
@@ -152,19 +139,16 @@ const deleteUser = async (req, res) => {
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
-        success: false,
         message: "用户不存在",
       });
     }
 
     res.status(200).json({
-      success: true,
       message: "用户删除成功",
     });
   } catch (error) {
     console.error("删除用户失败:", error);
     res.status(500).json({
-      success: false,
       message: "删除用户失败",
       error: error.message,
     });
@@ -174,25 +158,23 @@ const deleteUser = async (req, res) => {
 // 用户登录
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { account, password } = req.body;
 
     // 基础验证
-    if (!username || !password) {
+    if (!account || !password) {
       return res.status(400).json({
-        success: false,
         message: "用户名和密码不能为空",
       });
     }
 
-    // 查询用户
+    // 查询用户（支持用户名或邮箱登录）
     const [rows] = await pool.query(
-      "SELECT id, username, email, password FROM users WHERE username = ?",
-      [username]
+      "SELECT id, username, email, password FROM users WHERE username = ? OR email = ?",
+      [account, account]
     );
 
     if (rows.length === 0) {
       return res.status(401).json({
-        success: false,
         message: "用户名或密码错误",
       });
     }
@@ -204,7 +186,6 @@ const login = async (req, res) => {
 
     if (!isPasswordValid) {
       return res.status(401).json({
-        success: false,
         message: "用户名或密码错误",
       });
     }
@@ -213,7 +194,6 @@ const login = async (req, res) => {
     const token = generateToken(user.id, user.username);
 
     res.status(200).json({
-      success: true,
       message: "登录成功",
       data: {
         token,
@@ -227,7 +207,6 @@ const login = async (req, res) => {
   } catch (error) {
     console.error("登录失败:", error);
     res.status(500).json({
-      success: false,
       message: "登录失败",
       error: error.message,
     });
@@ -240,13 +219,11 @@ const logout = async (req, res) => {
     // 由于使用 JWT，客户端只需删除本地存储的 token 即可
     // 服务端不需要做特殊处理
     res.status(200).json({
-      success: true,
       message: "退出登录成功",
     });
   } catch (error) {
     console.error("退出登录失败:", error);
     res.status(500).json({
-      success: false,
       message: "退出登录失败",
       error: error.message,
     });
@@ -261,7 +238,6 @@ const updatePassword = async (req, res) => {
     // 基础验证
     if (!userId || !oldPassword || !newPassword) {
       return res.status(400).json({
-        success: false,
         message: "用户ID、旧密码和新密码不能为空",
       });
     }
@@ -269,7 +245,6 @@ const updatePassword = async (req, res) => {
     // 验证新密码长度
     if (newPassword.length < 6) {
       return res.status(400).json({
-        success: false,
         message: "新密码长度不能少于6位",
       });
     }
@@ -282,7 +257,6 @@ const updatePassword = async (req, res) => {
 
     if (rows.length === 0) {
       return res.status(404).json({
-        success: false,
         message: "用户不存在",
       });
     }
@@ -294,7 +268,6 @@ const updatePassword = async (req, res) => {
 
     if (!isOldPasswordValid) {
       return res.status(401).json({
-        success: false,
         message: "旧密码错误",
       });
     }
@@ -310,19 +283,16 @@ const updatePassword = async (req, res) => {
 
     if (result.affectedRows === 0) {
       return res.status(500).json({
-        success: false,
         message: "密码更新失败",
       });
     }
 
     res.status(200).json({
-      success: true,
       message: "密码修改成功",
     });
   } catch (error) {
     console.error("修改密码失败:", error);
     res.status(500).json({
-      success: false,
       message: "修改密码失败",
       error: error.message,
     });
