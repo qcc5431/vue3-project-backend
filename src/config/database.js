@@ -15,7 +15,7 @@ const dbConfig = {
 
 // 输出环境信息
 console.log(
-  `🔧 当前环境: ${NODE_ENV === "production" ? "生产环境" : "开发环境"}`
+  `🔧 当前环境: ${NODE_ENV === "production" ? "生产环境" : "测试环境"}`
 );
 console.log(
   `🔗 数据库连接: ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`

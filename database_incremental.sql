@@ -1,31 +1,7 @@
 -- ============================================
--- 项目数据库初始化脚本
--- 数据库名: vue3_backend
--- 字符集: utf8mb4
+-- 增量更新脚本 - 添加笔记社交相关表
+-- 执行前提：users表已存在
 -- ============================================
-
--- 注意：数据库已通过以下命令手动创建，无需重复执行
--- CREATE DATABASE vue3_backend DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- 如果需要切换数据库（手动执行时使用）
--- USE vue3_backend;
-
--- ============================================
--- 用户表
--- ============================================
-CREATE TABLE IF NOT EXISTS users (
-  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
-  username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-  email VARCHAR(100) NOT NULL UNIQUE COMMENT '邮箱',
-  password VARCHAR(255) NOT NULL COMMENT '密码（加密存储）',
-  nickname VARCHAR(50) COMMENT '昵称',
-  avatar VARCHAR(255) COMMENT '头像URL',
-  bio VARCHAR(255) COMMENT '个人简介',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  INDEX idx_username (username),
-  INDEX idx_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
 -- ============================================
 -- 笔记表
@@ -157,3 +133,17 @@ CREATE TABLE IF NOT EXISTS comment_likes (
   FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论点赞表';
+
+-- ============================================
+-- 更新users表（添加新字段）
+-- ============================================
+ALTER TABLE users 
+  ADD COLUMN nickname VARCHAR(50) COMMENT '昵称' AFTER password,
+  ADD COLUMN avatar VARCHAR(255) COMMENT '头像URL' AFTER nickname,
+  ADD COLUMN bio VARCHAR(255) COMMENT '个人简介' AFTER avatar;
+
+-- ============================================
+-- 完成提示
+-- ============================================
+SELECT '数据库表创建完成！' as message;
+SHOW TABLES;
