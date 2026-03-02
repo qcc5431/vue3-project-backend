@@ -143,6 +143,34 @@ ALTER TABLE users
   ADD COLUMN bio VARCHAR(255) COMMENT '个人简介' AFTER avatar;
 
 -- ============================================
+-- v1.3 手机号登录相关变更
+-- 日期：2026-03-02
+-- ============================================
+
+-- 1. users 表：添加 phone 字段
+ALTER TABLE users
+  ADD COLUMN phone VARCHAR(20) DEFAULT NULL UNIQUE COMMENT '手机号' AFTER password;
+
+-- 2. users 表：email/password 改为可空（支持手机号直接注册，无需邮箱密码）
+ALTER TABLE users
+  MODIFY COLUMN email    VARCHAR(100) DEFAULT NULL UNIQUE COMMENT '邮箱',
+  MODIFY COLUMN password VARCHAR(255) DEFAULT NULL COMMENT '密码（加密存储）';
+
+-- 3. 添加 phone 字段索引
+ALTER TABLE users ADD INDEX idx_phone (phone);
+
+-- 4. 新建短信验证码表
+CREATE TABLE IF NOT EXISTS sms_codes (
+  id         INT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  phone      VARCHAR(20)  NOT NULL COMMENT '手机号',
+  code       VARCHAR(10)  NOT NULL COMMENT '验证码',
+  expires_at TIMESTAMP    NOT NULL COMMENT '过期时间',
+  used       TINYINT(1)   DEFAULT 0 COMMENT '是否已使用 0-未使用 1-已使用',
+  created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  INDEX idx_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='短信验证码表';
+
+-- ============================================
 -- 完成提示
 -- ============================================
 SELECT '数据库表创建完成！' as message;

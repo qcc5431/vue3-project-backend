@@ -16,16 +16,37 @@
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY COMMENT '用户ID',
   username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-  email VARCHAR(100) NOT NULL UNIQUE COMMENT '邮箱',
-  password VARCHAR(255) NOT NULL COMMENT '密码（加密存储）',
+  email VARCHAR(100) DEFAULT NULL UNIQUE COMMENT '邮箱',
+  password VARCHAR(255) DEFAULT NULL COMMENT '密码（加密存储）',
+  phone VARCHAR(20) DEFAULT NULL UNIQUE COMMENT '手机号',
   nickname VARCHAR(50) COMMENT '昵称',
   avatar VARCHAR(255) COMMENT '头像URL',
   bio VARCHAR(255) COMMENT '个人简介',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   INDEX idx_username (username),
-  INDEX idx_email (email)
+  INDEX idx_email (email),
+  INDEX idx_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- 如果 users 表已存在，手动执行以下 ALTER 语句：
+-- ALTER TABLE users ADD COLUMN phone VARCHAR(20) DEFAULT NULL UNIQUE COMMENT '手机号' AFTER password;
+-- ALTER TABLE users MODIFY COLUMN email VARCHAR(100) DEFAULT NULL UNIQUE COMMENT '邮箱';
+-- ALTER TABLE users MODIFY COLUMN password VARCHAR(255) DEFAULT NULL COMMENT '密码（加密存储）';
+-- ALTER TABLE users ADD INDEX idx_phone (phone);
+
+-- ============================================
+-- 短信验证码表
+-- ============================================
+CREATE TABLE IF NOT EXISTS sms_codes (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  phone VARCHAR(20) NOT NULL COMMENT '手机号',
+  code VARCHAR(10) NOT NULL COMMENT '验证码',
+  expires_at TIMESTAMP NOT NULL COMMENT '过期时间',
+  used TINYINT(1) DEFAULT 0 COMMENT '是否已使用 0-未使用 1-已使用',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  INDEX idx_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='短信验证码表';
 
 -- ============================================
 -- 笔记表

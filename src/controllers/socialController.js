@@ -221,7 +221,7 @@ const getFollowers = async (req, res) => {
   }
 };
 
-// 获取评论列表
+// 获取评论列表（嵌套结构：顶级评论 + replies）
 const getComments = async (req, res) => {
   try {
     const { noteId, page = 1, pageSize = 10 } = req.query;
@@ -236,15 +236,39 @@ const getComments = async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(pageSize);
 
-    // 获取总数
+    // 获取顶级评论总数（reply_to IS NULL 的才是顶级评论）
     const [countRows] = await pool.query(
-      "SELECT COUNT(*) as total FROM comments WHERE note_id = ?",
+      "SELECT COUNT(*) as total FROM comments WHERE note_id = ? AND reply_to IS NULL",
       [noteId]
     );
     const total = countRows[0].total;
 
-    // 获取评论列表
-    const [rows] = await pool.query(
+    // 获取顶级评论列表（分页）
+    const [topLevelRows] = await pool.query(
+      `SELECT 
+        c.id, c.note_id, c.user_id, c.content, c.like_count, c.created_at,
+        u.username, u.avatar as user_avatar
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.note_id = ? AND c.reply_to IS NULL
+      ORDER BY c.created_at DESC
+      LIMIT ? OFFSET ?`,
+      [noteId, parseInt(pageSize), offset]
+    );
+
+    if (topLevelRows.length === 0) {
+      return res.status(200).json({
+        code: 200,
+        message: "success",
+        data: { list: [], total, page: parseInt(page), pageSize: parseInt(pageSize) },
+      });
+    }
+
+    const topLevelIds = topLevelRows.map((r) => r.id);
+
+    // 获取所有子回复（一次性查询，reply_to 在顶级评论 ID 列表中，或者是这些回复的子回复）
+    // 这里简化处理：获取该笔记下所有非顶级评论，然后在内存中构建树
+    const [allReplies] = await pool.query(
       `SELECT 
         c.id, c.note_id, c.user_id, c.content, c.like_count, c.reply_to, c.created_at,
         u.username, u.avatar as user_avatar,
@@ -253,36 +277,80 @@ const getComments = async (req, res) => {
       LEFT JOIN users u ON c.user_id = u.id
       LEFT JOIN comments rc ON c.reply_to = rc.id
       LEFT JOIN users ru ON rc.user_id = ru.id
-      WHERE c.note_id = ?
-      ORDER BY c.created_at DESC
-      LIMIT ? OFFSET ?`,
-      [noteId, parseInt(pageSize), offset]
+      WHERE c.note_id = ? AND c.reply_to IS NOT NULL
+      ORDER BY c.created_at ASC`,
+      [noteId]
     );
 
-    // 获取点赞状态
+    // 收集所有评论ID，用于查询点赞状态
+    const allCommentIds = [
+      ...topLevelRows.map((r) => r.id),
+      ...allReplies.map((r) => r.id),
+    ];
+
+    // 获取当前用户的点赞状态
     let likedSet = new Set();
-    if (userId && rows.length > 0) {
-      const commentIds = rows.map((r) => r.id);
+    if (userId && allCommentIds.length > 0) {
       const [likedRows] = await pool.query(
         `SELECT comment_id FROM comment_likes WHERE user_id = ? AND comment_id IN (?)`,
-        [userId, commentIds]
+        [userId, allCommentIds]
       );
       likedSet = new Set(likedRows.map((r) => r.comment_id));
     }
 
-    const list = rows.map((row) => ({
-      id: String(row.id),
-      noteId: String(row.note_id),
-      userId: String(row.user_id),
-      username: row.username,
-      userAvatar: row.user_avatar,
-      content: row.content,
-      likeCount: row.like_count,
-      isLiked: likedSet.has(row.id),
-      replyTo: row.reply_to ? String(row.reply_to) : null,
-      replyToUser: row.reply_to_user,
-      createdAt: row.created_at.toISOString(),
-    }));
+    // 构建回复映射：key 为父评论ID，value 为该父评论下的所有直接子回复
+    const replyMap = new Map();
+    for (const reply of allReplies) {
+      const parentId = reply.reply_to;
+      if (!replyMap.has(parentId)) {
+        replyMap.set(parentId, []);
+      }
+      replyMap.get(parentId).push(reply);
+    }
+
+    // 递归获取某评论下的所有回复（扁平化到 replies 数组）
+    const getAllRepliesForComment = (commentId) => {
+      const directReplies = replyMap.get(commentId) || [];
+      const result = [];
+
+      for (const reply of directReplies) {
+        result.push({
+          id: String(reply.id),
+          noteId: String(reply.note_id),
+          userId: String(reply.user_id),
+          username: reply.username,
+          userAvatar: reply.user_avatar,
+          content: reply.content,
+          likeCount: reply.like_count,
+          isLiked: likedSet.has(reply.id),
+          replyTo: String(reply.reply_to),
+          replyToUser: reply.reply_to_user,
+          createdAt: reply.created_at.toISOString(),
+        });
+        // 递归获取子回复的子回复
+        result.push(...getAllRepliesForComment(reply.id));
+      }
+
+      return result;
+    };
+
+    // 构建最终列表
+    const list = topLevelRows.map((row) => {
+      const replies = getAllRepliesForComment(row.id);
+      return {
+        id: String(row.id),
+        noteId: String(row.note_id),
+        userId: String(row.user_id),
+        username: row.username,
+        userAvatar: row.user_avatar,
+        content: row.content,
+        likeCount: row.like_count,
+        isLiked: likedSet.has(row.id),
+        createdAt: row.created_at.toISOString(),
+        replyCount: replies.length,
+        replies,
+      };
+    });
 
     res.status(200).json({
       code: 200,

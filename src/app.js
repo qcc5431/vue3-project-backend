@@ -30,12 +30,14 @@ app.get("/health", (req, res) => {
 
 // API路由
 const userRoutes = require("./routes/userRoutes");
+const authRoutes = require("./routes/authRoutes");
 const noteRoutes = require("./routes/noteRoutes");
 const socialRoutes = require("./routes/socialRoutes");
 const folderRoutes = require("./routes/folderRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 
 app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/social", socialRoutes);
 app.use("/api/folders", folderRoutes);
