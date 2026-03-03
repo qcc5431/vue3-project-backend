@@ -135,14 +135,6 @@ CREATE TABLE IF NOT EXISTS comment_likes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论点赞表';
 
 -- ============================================
--- 更新users表（添加新字段）
--- ============================================
-ALTER TABLE users 
-  ADD COLUMN nickname VARCHAR(50) COMMENT '昵称' AFTER password,
-  ADD COLUMN avatar VARCHAR(255) COMMENT '头像URL' AFTER nickname,
-  ADD COLUMN bio VARCHAR(255) COMMENT '个人简介' AFTER avatar;
-
--- ============================================
 -- v1.3 手机号登录相关变更
 -- 日期：2026-03-02
 -- ============================================
