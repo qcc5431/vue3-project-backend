@@ -140,8 +140,8 @@ CREATE TABLE IF NOT EXISTS comment_likes (
 -- ============================================
 
 -- 1. users 表：添加 phone 字段
-ALTER TABLE users
-  ADD COLUMN phone VARCHAR(20) DEFAULT NULL UNIQUE COMMENT '手机号' AFTER password;
+-- ALTER TABLE users
+--   ADD COLUMN phone VARCHAR(20) DEFAULT NULL UNIQUE COMMENT '手机号' AFTER password;
 
 -- 2. users 表：email/password 改为可空（支持手机号直接注册，无需邮箱密码）
 ALTER TABLE users
