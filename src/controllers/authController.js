@@ -19,7 +19,7 @@ const sendCode = async (req, res) => {
 
     if (!phone || !isValidPhone(phone)) {
       return res.status(400).json({
-        success: false,
+        code: 400,
         message: "手机号格式不正确，请输入11位有效手机号",
       });
     }
@@ -31,7 +31,7 @@ const sendCode = async (req, res) => {
     );
     if (recent.length > 0) {
       return res.status(429).json({
-        success: false,
+        code: 429,
         message: "发送太频繁，请60秒后重试",
       });
     }
@@ -55,13 +55,16 @@ const sendCode = async (req, res) => {
     await sendVerifyCode(phone, code);
 
     res.status(200).json({
-      success: true,
+      code: 200,
       message: "验证码已发送，5分钟内有效",
+      data: {
+        code, // 直接返回验证码，前端可直接使用
+      },
     });
   } catch (error) {
     console.error("发送验证码失败:", error);
     res.status(500).json({
-      success: false,
+      code: 500,
       message: "发送失败，请稍后重试",
       error: error.message,
     });
@@ -75,14 +78,14 @@ const phoneLogin = async (req, res) => {
 
     if (!phone || !isValidPhone(phone)) {
       return res.status(400).json({
-        success: false,
+        code: 400,
         message: "手机号格式不正确",
       });
     }
 
     if (!code || code.length !== 6) {
       return res.status(400).json({
-        success: false,
+        code: 400,
         message: "请输入6位验证码",
       });
     }
@@ -97,20 +100,22 @@ const phoneLogin = async (req, res) => {
 
     if (rows.length === 0) {
       return res.status(400).json({
-        success: false,
+        code: 400,
         message: "验证码已过期或不存在，请重新获取",
       });
     }
 
     if (rows[0].code !== code) {
       return res.status(400).json({
-        success: false,
+        code: 400,
         message: "验证码错误",
       });
     }
 
     // 标记验证码为已使用
-    await pool.query("UPDATE sms_codes SET used = 1 WHERE id = ?", [rows[0].id]);
+    await pool.query("UPDATE sms_codes SET used = 1 WHERE id = ?", [
+      rows[0].id,
+    ]);
 
     // 查找或自动注册用户
     let [users] = await pool.query(
@@ -123,12 +128,20 @@ const phoneLogin = async (req, res) => {
 
     if (users.length === 0) {
       // 手机号首次登录 → 自动注册
-      const username = `用户${phone.slice(-4)}${Date.now().toString().slice(-4)}`;
+      const username = `用户${phone.slice(-4)}${Date.now()
+        .toString()
+        .slice(-4)}`;
       const [result] = await pool.query(
         "INSERT INTO users (username, phone) VALUES (?, ?)",
         [username, phone]
       );
-      user = { id: result.insertId, username, phone, nickname: null, avatar: null };
+      user = {
+        id: result.insertId,
+        username,
+        phone,
+        nickname: null,
+        avatar: null,
+      };
       isNewUser = true;
     } else {
       user = users[0];
@@ -137,22 +150,24 @@ const phoneLogin = async (req, res) => {
     const token = generateToken(user.id, user.username);
 
     res.status(200).json({
-      success: true,
+      code: 200,
       message: isNewUser ? "注册并登录成功" : "登录成功",
-      isNewUser,
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        phone: user.phone,
-        nickname: user.nickname,
-        avatar: user.avatar,
+      data: {
+        isNewUser,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          phone: user.phone,
+          nickname: user.nickname,
+          avatar: user.avatar,
+        },
       },
     });
   } catch (error) {
     console.error("手机登录失败:", error);
     res.status(500).json({
-      success: false,
+      code: 500,
       message: "登录失败，请稍后重试",
       error: error.message,
     });
