@@ -35,6 +35,7 @@ const noteRoutes = require("./routes/noteRoutes");
 const socialRoutes = require("./routes/socialRoutes");
 const folderRoutes = require("./routes/folderRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
@@ -42,6 +43,7 @@ app.use("/api/notes", noteRoutes);
 app.use("/api/social", socialRoutes);
 app.use("/api/folders", folderRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/ai", aiRoutes);
 
 // 404处理
 app.use((req, res) => {
